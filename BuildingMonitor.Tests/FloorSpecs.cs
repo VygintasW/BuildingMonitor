@@ -4,7 +4,7 @@ using System;
 using Xunit;
 using BuildingMonitor.Actors;
 using BuildingMonitor.Messages;
-
+using BuildingMonitor.Messages.Temperatures;
 
 namespace BuildingMonitor.Tests
 {
@@ -125,6 +125,35 @@ namespace BuildingMonitor.Tests
 
             Assert.Equal(1, response.Ids.Count);
             Assert.Contains("90", response.Ids);
+        }
+
+        [Fact]
+        public void ShouldInitiateQuery()
+        {
+            var probe = CreateTestProbe();
+            var floor = Sys.ActorOf(Floor.Props("a"));
+
+            floor.Tell(new RequestRegisterTemperatureSensor(1, "a", "42"), probe.Ref);
+            probe.ExpectMsg<RespondSensorRegistered>();
+            var sensor1 = probe.LastSender;
+
+            floor.Tell(new RequestRegisterTemperatureSensor(2, "a", "90"), probe.Ref);
+            probe.ExpectMsg<RespondSensorRegistered>();
+            var sensor2 = probe.LastSender;
+
+            sensor1.Tell(new RequestUpdateTemperature(0, 50.4));
+            sensor2.Tell(new RequestUpdateTemperature(0, 100.8));
+
+            floor.Tell(new RequestAllTemperatures(1), probe.Ref);
+            var response = probe.ExpectMsg<RespondAllTemperatures>(x => x.RequestId == 1);
+
+            Assert.Equal(2, response.Temperatures.Count);
+
+            var reading1 = Assert.IsType<TemperatureAvailable>(response.Temperatures["42"]);
+            Assert.Equal(50.4, reading1.Temperature);
+
+            var reading2 = Assert.IsType<TemperatureAvailable>(response.Temperatures["90"]);
+            Assert.Equal(100.8, reading2.Temperature);
         }
     }
 }

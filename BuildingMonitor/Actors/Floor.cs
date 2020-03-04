@@ -34,6 +34,14 @@ namespace BuildingMonitor.Actors
                 case RequestTemperatureSensorIds m:
                     Sender.Tell(new RespondTemperatureSensorIds(m.RequestId, ImmutableHashSet.CreateRange<string>(Sensors.Keys)));
                     break;
+                case RequestAllTemperatures m:
+                    var actorRefToSensorIdMap = new Dictionary<IActorRef, string>();
+                    foreach (var item in Sensors)
+                    {
+                        actorRefToSensorIdMap.Add(item.Value, item.Key);
+                    }
+                    Context.ActorOf(FloorQuery.Props(actorRefToSensorIdMap, m.RequestId, Sender, TimeSpan.FromSeconds(3)));
+                    break;
                 case Terminated m:
                     var termintedTemperatureSensorId = Sensors.First(x => x.Value == m.ActorRef).Key;
                     Sensors.Remove(termintedTemperatureSensorId);
